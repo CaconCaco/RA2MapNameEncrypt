@@ -44,7 +44,7 @@ namespace RA2MapNameEncrypt.Data
             fMap.Refresh();
             var crc = new CRC32();
             IIniDocument doc;
-            using (FileStream fs = fMap.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
+            using (var fs = fMap.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
                 doc = await IniDocumentUtils.ParseAsync(fs);
             foreach (var i in lSection)
             {
@@ -78,7 +78,7 @@ namespace RA2MapNameEncrypt.Data
             fMap.Refresh();
             var bc = new BarCode();
             IIniDocument doc;
-            using (FileStream fs = fMap.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
+            using (var fs = fMap.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
                 doc = await IniDocumentUtils.ParseAsync(fs);
             foreach (var i in lSection)
             {

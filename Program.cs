@@ -16,7 +16,7 @@ namespace RA2MapNameEncrypt
             var i_file = Console.ReadLine();
             if (!new FileInfo(i_file).Exists)
             {
-                ConsolePause("[IO ERROR]");
+                ConsolePause("[IO ERROR] Abort encrypting.");
                 return;
             }
             Console.WriteLine("Encrypt Mode (CRC32 or BarCode):");
@@ -30,7 +30,7 @@ namespace RA2MapNameEncrypt
                     _ = MapEncryptBC(i_file);
                     break;
                 default:
-                    ConsolePause("[MODE ERROR]");
+                    ConsolePause("[MODE ERROR] Abort encrypting.");
                     return;
             }
             Console.ReadKey(true);
@@ -47,9 +47,9 @@ namespace RA2MapNameEncrypt
         {
             var map = new RA2Map(p);
             await map.ParseSection();
-            Console.WriteLine("Section Parsing: Done");
+            Console.WriteLine("[INFO] Section Parsing: Done");
             await map.CRC32Encrypt();
-            Console.WriteLine("Encrypt Process: Done");
+            Console.WriteLine("[INFO] Encrypt Process: Done");
 
             Console.WriteLine("Press any key to quit.");
             return;
@@ -59,9 +59,9 @@ namespace RA2MapNameEncrypt
         {
             var map = new RA2Map(p);
             await map.ParseSection();
-            Console.WriteLine("Section Parsing: Done");
+            Console.WriteLine("[INFO] Section Parsing: Done");
             await map.BarCodeEncrypt();
-            Console.WriteLine("Encrypt Process: Done");
+            Console.WriteLine("[INFO] Encrypt Process: Done");
 
             Console.WriteLine("Press any key to quit.");
             return;
