@@ -43,7 +43,7 @@ namespace RA2MapNameEncrypt.Utils
             char[] ret = new char[16];
             for (int i = 0; i < 16; ++i)
             {
-                ret[i] = (val & (1 << i)) != 0 ? 'I' : 'l';
+                ret[i] = (val & (1 << i)) != 0 ? 'i' : 'l';
             }
             return ret;
         }
