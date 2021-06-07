@@ -12,19 +12,19 @@ namespace RA2MapNameEncrypt.Data
 {
     class RA2Map
     {
-        public FileInfo fMap;
-        private List<string> lSection;
+        public FileInfo file;
+        public string[] AIElementRegs;
 
         public RA2Map(string path)
         {
-            fMap = new FileInfo(path);
-            lSection = new List<string>();
+            file = new FileInfo(path);
+            Task.WaitAny(AIElementParse());
         }
 
-        public async Task ParseSection()
+        private async Task AIElementParse()
         {
-            fMap.Refresh(); //To easier check the existence (IOException)
-            var doc = await IniDocumentUtils.ParseAsync(fMap.OpenRead());
+            var lSection = new List<string>();
+            var doc = await IniDocumentUtils.ParseAsync(file.OpenRead());
             foreach (var reg in doc["TaskForces"])
             {
                 lSection.Add(reg.Value);
@@ -37,73 +37,9 @@ namespace RA2MapNameEncrypt.Data
             {
                 lSection.Add(reg.Value);
             }
+            AIElementRegs = lSection.ToArray();
         }
 
-        public async Task CRC32Encrypt()
-        {
-            fMap.Refresh();
-            var crc = new CRC32();
-            IIniDocument doc;
-            using (var fs = fMap.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
-                doc = await IniDocumentUtils.ParseAsync(fs);
-            foreach (var i in lSection)
-            {
-                var desc = (string)doc[i, "Name"];
-                doc[i, "Name"] = crc.Encrypt(desc).ToString("x");
-            }
-            foreach (var kv in doc["Triggers"])
-            {
-                var element = ((string)kv.Value).Split(',');
-                element[2] = crc.Encrypt(element[2]).ToString("x");
-                doc["Triggers", kv.Key] = string.Join(",", element);
-            }
-            foreach (var kv in doc["Tags"])
-            {
-                var element = ((string)kv.Value).Split(',');
-                element[1] = crc.Encrypt(element[1]).ToString("x");
-                doc["Tags", kv.Key] = string.Join(",", element);
-            }
-            foreach (var kv in doc["VariableNames"])
-            {
-                var element = ((string)kv.Value).Split(',');
-                element[0] = crc.Encrypt(element[0]).ToString("x");
-                doc["VariableNames", kv.Key] = string.Join(",", element);
-            }
-            using (var fs = fMap.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
-                await doc.DeparseAsync(fs);
-        }
-
-        public async Task BarCodeEncrypt()
-        {
-            fMap.Refresh();
-            var bc = new BarCode();
-            IIniDocument doc;
-            using (var fs = fMap.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
-                doc = await IniDocumentUtils.ParseAsync(fs);
-            foreach (var i in lSection)
-            {
-                doc[i, "Name"] = new string(bc.Generate());
-            }
-            foreach (var kv in doc["Triggers"])
-            {
-                var element = ((string)kv.Value).Split(',');
-                element[2] = new string(bc.Generate());
-                doc["Triggers", kv.Key] = string.Join(",", element);
-            }
-            foreach (var kv in doc["Tags"])
-            {
-                var element = ((string)kv.Value).Split(',');
-                element[1] = new string(bc.Generate());
-                doc["Tags", kv.Key] = string.Join(",", element);
-            }
-            foreach (var kv in doc["VariableNames"])
-            {
-                var element = ((string)kv.Value).Split(',');
-                element[0] = new string(bc.Generate());
-                doc["VariableNames", kv.Key] = string.Join(",", element);
-            }
-            using (var fs = fMap.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
-                await doc.DeparseAsync(fs);
-        }
+        
     }
 }
