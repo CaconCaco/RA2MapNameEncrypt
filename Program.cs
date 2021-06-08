@@ -14,7 +14,7 @@ namespace RA2MapNameEncrypt
 {
     static class Program
     {
-        public static bool? IsHash;
+        public static int EncryptMode;
         public static List<RA2Map> MapFiles = new List<RA2Map>();
         public static List<Task> FilesToDo = new List<Task>();
         public static async Task Main(string[] args)
@@ -28,15 +28,15 @@ namespace RA2MapNameEncrypt
             switch (args[dMode + 1])
             {
                 case "CRC32":
-                    IsHash = true;
+                    EncryptMode = 1;
                     Console.WriteLine("[Info] Encrypt Mode: CRC32");
                     break;
                 case "BarCode":
-                    IsHash = false;
+                    EncryptMode = 2;
                     Console.WriteLine("[Info] Encrypt Mode: Bar Code");
                     break;
                 default:
-                    IsHash = null;
+                    EncryptMode = 0;
                     return;
             }
             foreach (var i in args[dInput + 1].Split(','))
@@ -58,7 +58,7 @@ namespace RA2MapNameEncrypt
             }
             foreach (var i in MapFiles)
             {
-                FilesToDo.Add(i.DoEncrypt(IsHash ?? false));
+                FilesToDo.Add(i.DoEncrypt(EncryptMode));
             }
             while (FilesToDo.Count > 0)
             {
@@ -67,63 +67,61 @@ namespace RA2MapNameEncrypt
                 FilesToDo.Remove(done);
             }
             //like system("Pause") in C.
-            Console.WriteLine("[Info] Objective Complete.");
+            Console.WriteLine("Press any key to quit.");
             Console.ReadKey(true);
 
             return;
         }
 
-        public static async Task DoEncrypt(this RA2Map map, bool useorigin)
+        public static async Task DoEncrypt(this RA2Map map, int e_mode)
         {
             map.file.Refresh();
-            var crc = new CRC32();
-            var bc = new BarCode();
-            //var parse_list = new List<Task>();
             IIniDocument doc;
             using (var fs = map.file.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
                 doc = await IniDocumentUtils.ParseAsync(fs);
-            // TODO: how to make those "foreach" async?
-            // Reject: no need to async here anymore. The main() would PROPERLY RUN!!
-            /*Action<string, int> pSection = (section, idx) =>
-            {*/
+
+            string encode(string input)
+            {
+                switch (e_mode)
+                {
+                    case 1:
+                        var crc = new CRC32();
+                        return crc.Encrypt(input).ToString("x");
+                    case 2:
+                        var bc = new BarCode();
+                        return new string(bc.Generate());
+                    case 0:
+                    default:
+                        return input;
+                }
+            }
+
             foreach (var kv in doc["Triggers"])
             {
                 var origin = ((string)kv.Value).Split(',');
-                origin[2] = useorigin ? crc.Encrypt(origin[2]).ToString("x") : new string(bc.Generate());
+                origin[2] = encode(origin[2]);
                 doc["Triggers", kv.Key] = string.Join(",", origin);
             }
             foreach (var kv in doc["Tags"])
             {
                 var origin = ((string)kv.Value).Split(',');
-                origin[1] = useorigin ? crc.Encrypt(origin[1]).ToString("x") : new string(bc.Generate());
+                origin[1] = encode(origin[1]);
                 doc["Tags", kv.Key] = string.Join(",", origin);
             }
             foreach (var kv in doc["VariableNames"])
             {
                 var origin = ((string)kv.Value).Split(',');
-                origin[0] = useorigin ? crc.Encrypt(origin[0]).ToString("x") : new string(bc.Generate());
+                origin[0] = encode(origin[0]);
                 doc["VariableNames", kv.Key] = string.Join(",", origin);
             }
-            /*};
-            Action pVal = () =>
-            {*/
             foreach (var i in map.AIElementRegs)
             {
                 var origin = (string)doc[i, "Name"];
-                doc[i, "Name"] = useorigin ? crc.Encrypt(origin).ToString("x") : new string(bc.Generate());
+                doc[i, "Name"] = encode(origin);
             }
-            /*};*/
-
-            /*while (parse_list.Count > 0)
-            {
-                Task parse_done = await Task.WhenAny(parse_list);
-                parse_list.Remove(parse_done);
-            }*/
             using (var fs = map.file.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
                 await doc.DeparseAsync(fs);
             return;
         }
-
-
     }
 }
