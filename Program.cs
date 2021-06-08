@@ -63,7 +63,6 @@ namespace RA2MapNameEncrypt
             while (FilesToDo.Count > 0)
             {
                 Task done = await Task.WhenAny(FilesToDo);
-                Console.WriteLine("[Info] Successfully encrypted 1 file.");
                 FilesToDo.Remove(done);
             }
             //like system("Pause") in C.
@@ -121,6 +120,7 @@ namespace RA2MapNameEncrypt
             }
             using (var fs = map.file.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
                 await doc.DeparseAsync(fs);
+            Console.WriteLine("[Info] Successfully encrypted 1 file.");
             return;
         }
     }
