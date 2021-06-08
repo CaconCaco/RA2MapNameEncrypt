@@ -14,7 +14,7 @@ namespace RA2MapNameEncrypt
 {
     static class Program
     {
-        public static int EncryptMode;
+        public static int Encoder;
         public static List<RA2Map> MapFiles = new List<RA2Map>();
         public static List<Task> FilesToDo = new List<Task>();
         public static async Task Main(string[] args)
@@ -28,15 +28,15 @@ namespace RA2MapNameEncrypt
             switch (args[dMode + 1])
             {
                 case "CRC32":
-                    EncryptMode = 1;
+                    Encoder = 1;
                     Console.WriteLine("[Info] Encrypt Mode: CRC32");
                     break;
                 case "BarCode":
-                    EncryptMode = 2;
+                    Encoder = 2;
                     Console.WriteLine("[Info] Encrypt Mode: Bar Code");
                     break;
                 default:
-                    EncryptMode = 0;
+                    Encoder = 0;
                     return;
             }
             foreach (var i in args[dInput + 1].Split(','))
@@ -58,7 +58,7 @@ namespace RA2MapNameEncrypt
             }
             foreach (var i in MapFiles)
             {
-                FilesToDo.Add(i.DoEncrypt(EncryptMode));
+                FilesToDo.Add(i.DoEncrypt(Encoder, args.Contains("-o")));
             }
             while (FilesToDo.Count > 0)
             {
@@ -72,16 +72,22 @@ namespace RA2MapNameEncrypt
             return;
         }
 
-        public static async Task DoEncrypt(this RA2Map map, int e_mode)
+        public static async Task DoEncrypt(this RA2Map map, int mode, bool copygen)
         {
-            map.file.Refresh();
+            var filename = map.file.Name.Split('.');
+            if (copygen)
+            {
+                filename[0] += "-output";
+            }
+            var output = copygen ? new FileInfo(Path.Combine(map.file.DirectoryName, string.Join(".", filename))) : map.file;
+
             IIniDocument doc;
             using (var fs = map.file.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
                 doc = await IniDocumentUtils.ParseAsync(fs);
 
             string encode(string input)
             {
-                switch (e_mode)
+                switch (mode)
                 {
                     case 1:
                         var crc = new CRC32();
@@ -118,7 +124,7 @@ namespace RA2MapNameEncrypt
                 var origin = (string)doc[i, "Name"];
                 doc[i, "Name"] = encode(origin);
             }
-            using (var fs = map.file.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
+            using (var fs = output.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
                 await doc.DeparseAsync(fs);
             Console.WriteLine("[Info] Successfully encrypted 1 file.");
             return;
