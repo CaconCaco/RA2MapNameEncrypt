@@ -39,17 +39,37 @@ namespace RA2MapNameEncrypt
                     Encoder = 0;
                     return;
             }
-            foreach (var i in args[dInput + 1].Split(','))
+            if (args.Contains("-b"))
             {
-                if (!new FileInfo(i).Exists)
+                var dir = new DirectoryInfo(args[dInput + 1]);
+                if (!dir.Exists)
                 {
-                    continue;
+                    return;
                 }
                 else
                 {
-                    var map = new RA2Map(i);
-                    Console.WriteLine("[Info] File detected: {0}", i);
-                    MapFiles.Add(map);
+                    foreach (var i in dir.GetFiles("*.map"))
+                    {
+                        var map = new RA2Map(i.FullName);
+                        Console.WriteLine("[Info] File detected: {0}", i);
+                        MapFiles.Add(map);
+                    }
+                }
+            }
+            else
+            {
+                foreach (var i in args[dInput + 1].Split(','))
+                {
+                    if (!new FileInfo(i).Exists)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        var map = new RA2Map(i);
+                        Console.WriteLine("[Info] File detected: {0}", i);
+                        MapFiles.Add(map);
+                    }
                 }
             }
             if (MapFiles.Count == 0)
