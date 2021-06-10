@@ -12,79 +12,44 @@ using System.Threading.Tasks;
 
 namespace RA2MapNameEncrypt
 {
+    enum EncodeMode
+    {
+        Default = 0,
+        CRC32 = 1,
+        BarCode = 2
+    }
+
     static class Program
     {
-        public static int Encoder;
-        public static List<RA2Map> MapFiles = new List<RA2Map>();
-        public static List<Task> FilesToDo = new List<Task>();
+        public static List<RA2Map> MapFiles;
         public static async Task Main(string[] args)
         {
-            if (!args.Contains("-i") || !args.Contains("-m"))
-            {
-                return;
-            }
             int dInput = args.ToList().IndexOf("-i");
             int dMode = args.ToList().IndexOf("-m");
-            switch (args[dMode + 1])
-            {
-                case "CRC32":
-                    Encoder = 1;
-                    Console.WriteLine("[Info] Encrypt Mode: CRC32");
-                    break;
-                case "BarCode":
-                    Encoder = 2;
-                    Console.WriteLine("[Info] Encrypt Mode: Bar Code");
-                    break;
-                default:
-                    Encoder = 0;
-                    return;
-            }
-            if (args.Contains("-b"))
-            {
-                var dir = new DirectoryInfo(args[dInput + 1]);
-                if (!dir.Exists)
-                {
-                    return;
-                }
-                else
-                {
-                    foreach (var i in dir.GetFiles("*.map"))
-                    {
-                        var map = new RA2Map(i.FullName);
-                        Console.WriteLine("[Info] File detected: {0}", i);
-                        MapFiles.Add(map);
-                    }
-                }
-            }
-            else
-            {
-                foreach (var i in args[dInput + 1].Split(','))
-                {
-                    if (!new FileInfo(i).Exists)
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        var map = new RA2Map(i);
-                        Console.WriteLine("[Info] File detected: {0}", i);
-                        MapFiles.Add(map);
-                    }
-                }
-            }
-            if (MapFiles.Count == 0)
-            {
+            if (dInput == -1 || dMode == -1)
                 return;
+
+            EncodeMode type;
+            try
+            {
+                type = (EncodeMode)Enum.Parse(typeof(EncodeMode), args[dMode + 1]);
             }
+            catch (IndexOutOfRangeException) { return; }
+            catch (ArgumentException) { type = 0; }
+            Console.WriteLine($"[Info] Encrypt Mode: {type}");
+
+            MapFiles = args.Contains("-b") ?
+                BatchMapCollect(new DirectoryInfo(args[dInput + 1])) :
+                MapCollect(args[dInput + 1].Split(','));
+            if (MapFiles.Count == 0) return;
+            else Console.WriteLine($"[Info] {MapFiles.Count} file(s) parsed.");
             foreach (var i in MapFiles)
             {
-                FilesToDo.Add(i.DoEncrypt(Encoder, args.Contains("-o")));
+                //Console.WriteLine($"[Info] File \"{i.file.Name}\" parsed.");
+                await i.DoEncrypt(type, args.Contains("-b"));
             }
-            while (FilesToDo.Count > 0)
-            {
-                Task done = await Task.WhenAny(FilesToDo);
-                FilesToDo.Remove(done);
-            }
+            //await Task.WhenAll(MapFiles.Select(async f => await f.DoEncrypt(type, args.Contains("-b"))));
+
             //like system("Pause") in C.
             Console.WriteLine("Press any key to quit.");
             Console.ReadKey(true);
@@ -92,62 +57,74 @@ namespace RA2MapNameEncrypt
             return;
         }
 
-        public static async Task DoEncrypt(this RA2Map map, int mode, bool copygen)
+        public static async Task DoEncrypt(this RA2Map map, EncodeMode mode, bool copygen)
         {
             var filename = map.file.Name.Split('.');
-            if (copygen)
-            {
-                filename[0] += "-output";
-            }
-            var output = copygen ? new FileInfo(Path.Combine(map.file.DirectoryName, string.Join(".", filename))) : map.file;
+            if (copygen) filename[0] += "-output";
+            var output = copygen ? 
+                new FileInfo(Path.Combine(map.file.DirectoryName, string.Join(".", filename))) : 
+                map.file;
 
             IIniDocument doc;
             using (var fs = map.file.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
                 doc = await IniDocumentUtils.ParseAsync(fs);
 
-            string encode(string input)
-            {
-                switch (mode)
-                {
-                    case 1:
-                        var crc = new CRC32();
-                        return crc.Encrypt(input).ToString("x");
-                    case 2:
-                        var bc = new BarCode();
-                        return new string(bc.Generate());
-                    case 0:
-                    default:
-                        return input;
-                }
-            }
+            SectionEncrypt(doc["Triggers"], 2, mode);
+            SectionEncrypt(doc["Tags"], 1, mode);
+            SectionEncrypt(doc["VariableNames"], 0, mode);
+            SectionEncrypt(doc["AITriggerTypes"], 0, mode); //应该没人用这破玩意吧= =
+            SectionEncrypt(map.AIElementRegs.Select(i => doc[i]), "Name", mode);
 
-            foreach (var kv in doc["Triggers"])
-            {
-                var origin = ((string)kv.Value).Split(',');
-                origin[2] = encode(origin[2]);
-                doc["Triggers", kv.Key] = string.Join(",", origin);
-            }
-            foreach (var kv in doc["Tags"])
-            {
-                var origin = ((string)kv.Value).Split(',');
-                origin[1] = encode(origin[1]);
-                doc["Tags", kv.Key] = string.Join(",", origin);
-            }
-            foreach (var kv in doc["VariableNames"])
-            {
-                var origin = ((string)kv.Value).Split(',');
-                origin[0] = encode(origin[0]);
-                doc["VariableNames", kv.Key] = string.Join(",", origin);
-            }
-            foreach (var i in map.AIElementRegs)
-            {
-                var origin = (string)doc[i, "Name"];
-                doc[i, "Name"] = encode(origin);
-            }
             using (var fs = output.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
                 await doc.DeparseAsync(fs);
-            Console.WriteLine("[Info] Successfully encrypted 1 file.");
+            Console.WriteLine($"[Info] Process of \"{output.Name}\" is successful.");
             return;
+        }
+
+        private static void SectionEncrypt(IIniSection section, int idx, EncodeMode enc)
+        {
+            foreach (var kv in section)
+            {
+                var origin = ((string)kv.Value).Split(',');
+                origin[idx] = Encode(origin[idx], enc);
+                section[kv.Key] = string.Join(",", origin);
+            }
+        }
+
+        private static void SectionEncrypt(IEnumerable<IIniSection> sections, string key, EncodeMode enc)
+        {
+            foreach (var s in sections)
+            {
+                s[key] = Encode(s[key], enc);
+            }
+        }
+
+        private static string Encode(string input, EncodeMode enc)
+        {
+            switch (enc)
+            {
+                case EncodeMode.CRC32: return CRC32.Encrypt(input).ToString("x");
+                case EncodeMode.BarCode: return new string(new BarCode().Generate());
+                default: return input;
+            }
+        }
+
+        public static List<RA2Map> BatchMapCollect(DirectoryInfo dir)
+        {
+            if (!dir.Exists) return new List<RA2Map>();
+            else
+            {
+                var ret = new List<RA2Map>(dir.GetFiles("*.map").Select(i => new RA2Map(i)));
+                ret.AddRange(dir.GetFiles("*.mpr").Select(i => new RA2Map(i)));
+                ret.AddRange(dir.GetFiles("*.yrm").Select(i => new RA2Map(i)));
+                return ret;
+            }
+        }
+
+        public static List<RA2Map> MapCollect(string[] files)
+        {
+            var f_array = files.Select(i => new FileInfo(i));
+            return new List<RA2Map>(from map in f_array where map.Exists select new RA2Map(map));
         }
     }
 }

@@ -6,15 +6,13 @@ using System.Threading.Tasks;
 
 namespace RA2MapNameEncrypt.Utils
 {
-    class CRC32
+    static class CRC32
     {
         // See source: https://www.cnblogs.com/Kconnie/p/3538194.html
 
-        protected ulong[] Crc32Table;
-
-        public CRC32()
+        private static ulong[] TableInit()
         {
-            Crc32Table = new ulong[256];
+            var ret = new ulong[256];
             for (int i = 0; i < 256; i++)
             {
                 var crc = (ulong)i;
@@ -25,12 +23,14 @@ namespace RA2MapNameEncrypt.Utils
                     else
                         crc >>= 1;
                 }
-                Crc32Table[i] = crc;
+                ret[i] = crc;
             }
+            return ret;
         }
 
-        public ulong Encrypt(string sInputString)
+        public static ulong Encrypt(string sInputString)
         {
+            var Crc32Table = TableInit();
             byte[] buffer = Encoding.ASCII.GetBytes(sInputString);
             ulong value = 0xffffffff;
             int len = buffer.Length;

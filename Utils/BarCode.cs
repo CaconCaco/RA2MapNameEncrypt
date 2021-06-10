@@ -11,7 +11,7 @@ namespace RA2MapNameEncrypt.Utils
     {
         // Thanks to SECSOME,
         // and the ideas of Uranisian.
-        private BitSet checker;
+        private readonly BitSet checker;
         private Random rand;
         public BarCode()
         {

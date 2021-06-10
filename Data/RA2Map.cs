@@ -12,34 +12,24 @@ namespace RA2MapNameEncrypt.Data
 {
     class RA2Map
     {
+        public List<string> AIElementRegs;
         public FileInfo file;
-        public string[] AIElementRegs;
-
-        public RA2Map(string path)
+        public RA2Map(string fs)
         {
-            file = new FileInfo(path);
-            Task.WaitAny(AIElementParse());
+            file = new FileInfo(fs);
+            Task.WaitAny(AIElementParse(file));
         }
-
-        private async Task AIElementParse()
+        public RA2Map(FileInfo f)
         {
-            var lSection = new List<string>();
-            var doc = await IniDocumentUtils.ParseAsync(file.OpenRead());
-            foreach (var reg in doc["TaskForces"])
-            {
-                lSection.Add(reg.Value);
-            }
-            foreach (var reg in doc["ScriptTypes"])
-            {
-                lSection.Add(reg.Value);
-            }
-            foreach (var reg in doc["TeamTypes"])
-            {
-                lSection.Add(reg.Value);
-            }
-            AIElementRegs = lSection.ToArray();
+            file = f;
+            Task.WaitAny(AIElementParse(f));
         }
-
-        
+        private async Task AIElementParse(FileInfo f)
+        {
+            var doc = await IniDocumentUtils.ParseAsync(f.OpenRead());
+            AIElementRegs = new List<string>(doc["TaskForces"].Select(i => (string)i.Value));
+            AIElementRegs.AddRange(doc["ScriptTypes"].Select(i => (string)i.Value));
+            AIElementRegs.AddRange(doc["TeamTypes"].Select(i => (string)i.Value));
+        }
     }
 }
