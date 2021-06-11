@@ -10,10 +10,11 @@ using System.Threading.Tasks;
 
 namespace RA2MapNameEncrypt.Data
 {
-    class RA2Map
+    class RA2Map : FileSystemInfo
     {
         public List<string> AIElementRegs;
         public FileInfo file;
+
         public RA2Map(string fs)
         {
             file = new FileInfo(fs);
@@ -24,6 +25,18 @@ namespace RA2MapNameEncrypt.Data
             file = f;
             Task.WaitAny(AIElementParse(f));
         }
+
+        public override string Name => file.Name;
+
+        public override bool Exists => file.Exists;
+
+        public string DirectoryName => file.DirectoryName;
+
+        public override void Delete()
+        {
+            file.Delete();
+        }
+
         private async Task AIElementParse(FileInfo f)
         {
             var doc = await IniDocumentUtils.ParseAsync(f.OpenRead());

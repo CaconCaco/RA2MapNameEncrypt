@@ -16,7 +16,8 @@ namespace RA2MapNameEncrypt
     {
         Default = 0,
         CRC32 = 1,
-        BarCode = 2
+        BarCode = 2,
+        GUID = 3
     }
 
     static class Program
@@ -43,26 +44,20 @@ namespace RA2MapNameEncrypt
                 MapCollect(args[dInput + 1].Split(','));
             if (MapFiles.Count == 0) return;
             else Console.WriteLine($"[Info] {MapFiles.Count} file(s) parsed.");
-            foreach (var i in MapFiles)
-            {
-                //Console.WriteLine($"[Info] File \"{i.file.Name}\" parsed.");
-                await i.DoEncrypt(type, args.Contains("-b"));
-            }
-            //await Task.WhenAll(MapFiles.Select(async f => await f.DoEncrypt(type, args.Contains("-b"))));
+
+            foreach (var i in MapFiles) await DoEncrypt(i, type, args.Contains("-o"));
+            //await Task.WhenAll(MapFiles.Select(async map => await DoEncrypt(map, type, args.Contains("-o"))));
 
             //like system("Pause") in C.
-            Console.WriteLine("Press any key to quit.");
-            Console.ReadKey(true);
-
-            return;
+            Console.WriteLine("Done!");
         }
 
-        public static async Task DoEncrypt(this RA2Map map, EncodeMode mode, bool copygen)
+        public static async Task DoEncrypt(RA2Map map, EncodeMode mode, bool copygen)
         {
-            var filename = map.file.Name.Split('.');
+            var filename = map.Name.Split('.');
             if (copygen) filename[0] += "-output";
             var output = copygen ? 
-                new FileInfo(Path.Combine(map.file.DirectoryName, string.Join(".", filename))) : 
+                new FileInfo(Path.Combine(map.DirectoryName, string.Join(".", filename))) : 
                 map.file;
 
             IIniDocument doc;
@@ -74,6 +69,13 @@ namespace RA2MapNameEncrypt
             SectionEncrypt(doc["VariableNames"], 0, mode);
             SectionEncrypt(doc["AITriggerTypes"], 0, mode); //应该没人用这破玩意吧= =
             SectionEncrypt(map.AIElementRegs.Select(i => doc[i]), "Name", mode);
+            // await Task.WhenAll(
+            //     Task.Run(() => SectionEncrypt(doc["Triggers"], 2, mode)),
+            //     Task.Run(() => SectionEncrypt(doc["Tags"], 1, mode)),
+            //     Task.Run(() => SectionEncrypt(doc["VariableNames"], 0, mode)),
+            //     Task.Run(() => SectionEncrypt(doc["AITriggerTypes"], 0, mode)), //应该没人用这破玩意吧= =
+            //     Task.Run(() => SectionEncrypt(map.AIElementRegs.Select(i => doc[i]), "Name", mode))
+            // );
 
             using (var fs = output.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
                 await doc.DeparseAsync(fs);
@@ -105,6 +107,7 @@ namespace RA2MapNameEncrypt
             {
                 case EncodeMode.CRC32: return CRC32.Encrypt(input).ToString("x");
                 case EncodeMode.BarCode: return new string(new BarCode().Generate());
+                case EncodeMode.GUID: return new Guid().ToString();
                 default: return input;
             }
         }
@@ -123,8 +126,8 @@ namespace RA2MapNameEncrypt
 
         public static List<RA2Map> MapCollect(string[] files)
         {
-            var f_array = files.Select(i => new FileInfo(i));
-            return new List<RA2Map>(from map in f_array where map.Exists select new RA2Map(map));
+            var f_array = files.Select(i => new RA2Map(i));
+            return new List<RA2Map>(from map in f_array where map.Exists select map);
         }
     }
 }
