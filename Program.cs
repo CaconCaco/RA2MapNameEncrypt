@@ -107,7 +107,7 @@ namespace RA2MapNameEncrypt
             {
                 case EncodeMode.CRC32: return CRC32.Encrypt(input).ToString("x");
                 case EncodeMode.BarCode: return new string(new BarCode().Generate());
-                case EncodeMode.GUID: return new Guid().ToString();
+                case EncodeMode.GUID: return Guid.NewGuid().ToString();
                 default: return input;
             }
         }
