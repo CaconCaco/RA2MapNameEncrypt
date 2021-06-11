@@ -45,8 +45,7 @@ namespace RA2MapNameEncrypt
             if (MapFiles.Count == 0) return;
             else Console.WriteLine($"[Info] {MapFiles.Count} file(s) parsed.");
 
-            foreach (var i in MapFiles) await DoEncrypt(i, type, args.Contains("-o"));
-            //await Task.WhenAll(MapFiles.Select(async map => await DoEncrypt(map, type, args.Contains("-o"))));
+            await Task.WhenAll(MapFiles.Select(async map => await DoEncrypt(map, type, args.Contains("-o"))));
 
             //like system("Pause") in C.
             Console.WriteLine("Done!");
@@ -54,32 +53,29 @@ namespace RA2MapNameEncrypt
 
         public static async Task DoEncrypt(RA2Map map, EncodeMode mode, bool copygen)
         {
-            var filename = map.Name.Split('.');
-            if (copygen) filename[0] += "-output";
-            var output = copygen ? 
-                new FileInfo(Path.Combine(map.DirectoryName, string.Join(".", filename))) : 
-                map.file;
+            if (copygen)
+            {
+                var bak = new FileInfo(Path.Combine(map.DirectoryName, map.Name + ".bak"));
+                if (bak.Exists)
+                    Console_WriteColorLine($"[WARNING] Existing \"{bak.Name}\" overwritten!", ConsoleColor.DarkYellow);
+                map.file.CopyTo(bak.FullName, true);
+            }
 
             IIniDocument doc;
             using (var fs = map.file.Open(FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read))
                 doc = await IniDocumentUtils.ParseAsync(fs);
 
-            SectionEncrypt(doc["Triggers"], 2, mode);
-            SectionEncrypt(doc["Tags"], 1, mode);
-            SectionEncrypt(doc["VariableNames"], 0, mode);
-            SectionEncrypt(doc["AITriggerTypes"], 0, mode); //应该没人用这破玩意吧= =
-            SectionEncrypt(map.AIElementRegs.Select(i => doc[i]), "Name", mode);
-            // await Task.WhenAll(
-            //     Task.Run(() => SectionEncrypt(doc["Triggers"], 2, mode)),
-            //     Task.Run(() => SectionEncrypt(doc["Tags"], 1, mode)),
-            //     Task.Run(() => SectionEncrypt(doc["VariableNames"], 0, mode)),
-            //     Task.Run(() => SectionEncrypt(doc["AITriggerTypes"], 0, mode)), //应该没人用这破玩意吧= =
-            //     Task.Run(() => SectionEncrypt(map.AIElementRegs.Select(i => doc[i]), "Name", mode))
-            // );
+            await Task.WhenAll(
+                Task.Run(() => SectionEncrypt(doc["Triggers"], 2, mode)),
+                Task.Run(() => SectionEncrypt(doc["Tags"], 1, mode)),
+                Task.Run(() => SectionEncrypt(doc["VariableNames"], 0, mode)),
+                Task.Run(() => SectionEncrypt(doc["AITriggerTypes"], 0, mode)), //应该没人用这破玩意吧= =
+                Task.Run(() => SectionEncrypt(map.AIElementRegs.Select(i => doc[i]), "Name", mode))
+            );
 
-            using (var fs = output.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
+            using (var fs = map.file.Open(FileMode.Create, FileAccess.Write, FileShare.Read))
                 await doc.DeparseAsync(fs);
-            Console.WriteLine($"[Info] Process of \"{output.Name}\" is successful.");
+            Console.WriteLine($"[Info] Process of \"{map.Name}\" is successful.");
             return;
         }
 
@@ -128,6 +124,14 @@ namespace RA2MapNameEncrypt
         {
             var f_array = files.Select(i => new RA2Map(i));
             return new List<RA2Map>(from map in f_array where map.Exists select map);
+        }
+
+        private static void Console_WriteColorLine(string str, ConsoleColor color)
+        {
+            ConsoleColor currentForeColor = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+            Console.WriteLine(str);
+            Console.ForegroundColor = currentForeColor;
         }
     }
 }
