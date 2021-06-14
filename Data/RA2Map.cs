@@ -12,7 +12,7 @@ namespace RA2MapNameEncrypt.Data
 {
     class RA2Map : FileSystemInfo
     {
-        public List<string> AIElementRegs;
+        public string[] AIElementRegs;
         public FileInfo file;
 
         public RA2Map(string fs)
@@ -40,9 +40,10 @@ namespace RA2MapNameEncrypt.Data
         private async Task AIElementParse(FileInfo f)
         {
             var doc = await IniDocumentUtils.ParseAsync(f.OpenRead());
-            AIElementRegs = new List<string>(doc["TaskForces"].Select(i => (string)i.Value));
-            AIElementRegs.AddRange(doc["ScriptTypes"].Select(i => (string)i.Value));
-            AIElementRegs.AddRange(doc["TeamTypes"].Select(i => (string)i.Value));
+            var regs = new List<string>(doc["TaskForces"].Select(i => (string)i.Value));
+            regs.AddRange(doc["ScriptTypes"].Select(i => (string)i.Value));
+            regs.AddRange(doc["TeamTypes"].Select(i => (string)i.Value));
+            AIElementRegs = regs.ToArray();
         }
     }
 }
