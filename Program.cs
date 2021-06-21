@@ -1,11 +1,17 @@
-﻿using RA2MapNameEncrypt.Data;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+using RA2MapNameEncrypt.Data;
 using RA2MapNameEncrypt.Utils;
+
 using Shimakaze.Struct.Ini;
 using Shimakaze.Struct.Ini.Utils;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,33 +28,44 @@ namespace RA2MapNameEncrypt
 
     static class Program
     {
+        const string URL = "https://api.github.com/repos/CaconCaco/RA2MapNameEncrypt/releases/latest";
+        const string VERSION = "v1.2.2";
         public static List<RA2Map> MapFiles;
         public static async Task Main(string[] args)
         {
-            int dInput = args.ToList().IndexOf("-i");
-            int dMode = args.ToList().IndexOf("-m");
-            if (dInput == -1 || dMode == -1)
-                return;
-
-            EncodeMode type;
+            Console.WriteLine($"{nameof(RA2MapNameEncrypt)} {VERSION}");
+            var t_check_update = UpdateCkeck();
             try
             {
-                type = (EncodeMode)Enum.Parse(typeof(EncodeMode), args[dMode + 1]);
+                int dInput = args.ToList().IndexOf("-i");
+                int dMode = args.ToList().IndexOf("-m");
+                if (dInput == -1 || dMode == -1)
+                    return;
+
+                EncodeMode type;
+                try
+                {
+                    type = (EncodeMode)Enum.Parse(typeof(EncodeMode), args[dMode + 1]);
+                }
+                catch (IndexOutOfRangeException) { return; }
+                catch (ArgumentException) { type = 0; }
+                Console.WriteLine($"[Info] Encrypt Mode: {type}");
+
+                MapFiles = args.Contains("-b") ?
+                    BatchMapCollect(new DirectoryInfo(args[dInput + 1])) :
+                    MapCollect(args[dInput + 1].Split(','));
+                if (MapFiles.Count == 0) return;
+                else Console.WriteLine($"[Info] {MapFiles.Count} file(s) parsed.");
+
+                await Task.WhenAll(MapFiles.Select(async map => await DoEncrypt(map, type, args.Contains("-o"))));
+
+                //like system("Pause") in C.
+                Console.WriteLine("Done!");
             }
-            catch (IndexOutOfRangeException) { return; }
-            catch (ArgumentException) { type = 0; }
-            Console.WriteLine($"[Info] Encrypt Mode: {type}");
-
-            MapFiles = args.Contains("-b") ?
-                BatchMapCollect(new DirectoryInfo(args[dInput + 1])) :
-                MapCollect(args[dInput + 1].Split(','));
-            if (MapFiles.Count == 0) return;
-            else Console.WriteLine($"[Info] {MapFiles.Count} file(s) parsed.");
-
-            await Task.WhenAll(MapFiles.Select(async map => await DoEncrypt(map, type, args.Contains("-o"))));
-
-            //like system("Pause") in C.
-            Console.WriteLine("Done!");
+            finally
+            {
+                await t_check_update;
+            }
         }
 
         public static async Task DoEncrypt(RA2Map map, EncodeMode mode, bool copygen)
@@ -132,6 +149,27 @@ namespace RA2MapNameEncrypt
             Console.ForegroundColor = color;
             Console.WriteLine(str);
             Console.ForegroundColor = currentForeColor;
+        }
+
+
+        static async Task UpdateCkeck()
+        {
+
+            using (HttpClient http = new HttpClient())
+            {
+                http.DefaultRequestHeaders.Add("User-Agent", "Dotnet Framework 4.8 App");
+                var res = await http.GetAsync(URL);
+                var raw = await res.Content.ReadAsStringAsync();
+                var json = JObject.Parse(raw);
+                var new_version = json.Value<string>("tag_name");
+                if (new_version == VERSION)
+                    return;
+
+
+                var download_url = json.SelectToken("assets[0]").Value<string>("browser_download_url");
+                Console.WriteLine($"Find New Version: {new_version}");
+                Console.WriteLine($"\tYou can Download from {download_url}");
+            }
         }
     }
 }
