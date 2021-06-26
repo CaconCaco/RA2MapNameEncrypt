@@ -34,7 +34,7 @@ namespace RA2MapNameEncrypt
         public static async Task Main(string[] args)
         {
             Console.WriteLine($"{nameof(RA2MapNameEncrypt)} {VERSION}");
-            var t_check_update = UpdateCkeck();
+            var t_check_update = UpdateCheck();
             try
             {
                 int dInput = args.ToList().IndexOf("-i");
@@ -152,24 +152,30 @@ namespace RA2MapNameEncrypt
         }
 
 
-        static async Task UpdateCkeck()
+        static async Task UpdateCheck()
         {
-
-            using (HttpClient http = new HttpClient())
+            try
             {
-                http.DefaultRequestHeaders.Add("User-Agent", "Dotnet Framework 4.8 App");
-                var res = await http.GetAsync(URL);
-                var raw = await res.Content.ReadAsStringAsync();
-                var json = JObject.Parse(raw);
-                var new_version = json.Value<string>("tag_name");
-                if (new_version == VERSION)
-                    return;
+                using (HttpClient http = new HttpClient())
+                {
+                    http.DefaultRequestHeaders.Add("User-Agent", "Dotnet Framework 4.8 App");
+                    var res = await http.GetAsync(URL);
+                    var raw = await res.Content.ReadAsStringAsync();
+                    var json = JObject.Parse(raw);
+                    var new_version = json.Value<string>("tag_name");
+                    if (new_version == VERSION)
+                        return;
 
-
-                var download_url = json.SelectToken("assets[0]").Value<string>("browser_download_url");
-                Console.WriteLine($"Find New Version: {new_version}");
-                Console.WriteLine($"\tYou can Download from {download_url}");
+                    var download_url = json.SelectToken("assets[0]").Value<string>("browser_download_url");
+                    Console.WriteLine($"Find New Version: {new_version}");
+                    Console.WriteLine($"\tYou can Download from {download_url}");
+                }
             }
+            /*catch (HttpRequestException) 
+            { 
+                Console_WriteColorLine("[Warning] Couldn't access the update server.", ConsoleColor.DarkYellow);
+            }*/
+            catch { } //not much, just pass the checking process.
         }
     }
 }
