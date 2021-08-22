@@ -30,6 +30,9 @@ namespace RA2MapNameEncrypt
     {
         const string URL = "https://api.github.com/repos/CaconCaco/RA2MapNameEncrypt/releases/latest";
         const string VERSION = "v1.2.2";
+
+        static string[] RA2MapExt = { ".map", ".mpr", ".yrm" };
+
         public static List<RA2Map> MapFiles;
         public static async Task Main(string[] args)
         {
@@ -75,7 +78,7 @@ namespace RA2MapNameEncrypt
                 var bak = new FileInfo(Path.Combine(map.DirectoryName, map.Name + ".bak"));
                 if (bak.Exists)
                     Console_WriteColorLine($"[WARNING] Existing \"{bak.Name}\" overwritten!", ConsoleColor.DarkYellow);
-                map.file.CopyTo(bak.FullName, true);
+                map.CopyTo(bak.FullName, true);
             }
 
             IIniDocument doc;
@@ -128,20 +131,11 @@ namespace RA2MapNameEncrypt
         public static List<RA2Map> BatchMapCollect(DirectoryInfo dir)
         {
             if (!dir.Exists) return new List<RA2Map>();
-            else
-            {
-                var ret = new List<RA2Map>(dir.GetFiles("*.map").Select(i => new RA2Map(i)));
-                ret.AddRange(dir.GetFiles("*.mpr").Select(i => new RA2Map(i)));
-                ret.AddRange(dir.GetFiles("*.yrm").Select(i => new RA2Map(i)));
-                return ret;
-            }
+            else return dir.GetFiles("*.*").Where(i => RA2MapExt.Contains(i.Extension)).Select(i => new RA2Map(i)).ToList();
         }
 
-        public static List<RA2Map> MapCollect(string[] files)
-        {
-            var f_array = files.Select(i => new RA2Map(i));
-            return new List<RA2Map>(from map in f_array where map.Exists select map);
-        }
+        public static List<RA2Map> MapCollect(string[] files) 
+            => files.Select(i => new RA2Map(i)).Where(i => i.Exists).ToList();
 
         private static void Console_WriteColorLine(string str, ConsoleColor color)
         {

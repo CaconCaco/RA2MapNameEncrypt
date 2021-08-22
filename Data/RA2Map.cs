@@ -32,18 +32,19 @@ namespace RA2MapNameEncrypt.Data
 
         public string DirectoryName => file.DirectoryName;
 
-        public override void Delete()
-        {
-            file.Delete();
-        }
+        public override void Delete() => file.Delete();
+
+        public void CopyTo(string fn, bool ow = false) => file.CopyTo(fn, ow);
 
         private async Task AIElementParse(FileInfo f)
         {
-            var doc = await IniDocumentUtils.ParseAsync(f.OpenRead());
+            var stream = f.OpenRead();
+            var doc = await IniDocumentUtils.ParseAsync(stream);
             var regs = new List<string>(doc["TaskForces"].Select(i => (string)i.Value));
             regs.AddRange(doc["ScriptTypes"].Select(i => (string)i.Value));
             regs.AddRange(doc["TeamTypes"].Select(i => (string)i.Value));
             AIElementRegs = regs.ToArray();
+            await stream.DisposeAsync();
         }
     }
 }
